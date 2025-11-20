@@ -1,0 +1,52 @@
+stages:
+  - checkout
+  - build
+  - test
+  - security_scan
+  - deploy
+
+
+checkout_code:
+  stage: checkout
+  script:
+    - echo "Fetching source code..."
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+
+build_job:
+  stage: build
+  script:
+    - echo "Building application for production..."
+    - ./build.sh
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+
+unit_tests:
+  stage: test
+  script:
+    - echo "Running automated tests..."
+    - ./run_tests.sh
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+
+security_scan:
+  stage: security_scan
+  script:
+    - echo "Running SAST security scan..."
+    - ./security_scan.sh
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+
+deploy_prod:
+  stage: deploy
+  script:
+    - echo "Deploying to production..."
+    - ./deploy.sh
+  environment:
+    name: production
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
