@@ -1,0 +1,34 @@
+include:
+  - project: "platform/ci-templates"
+    ref: "main"
+    file: "/.gitlab-ci-templates/ci_template.yml"
+
+variables:
+  APP_ENV: "production"
+  DOCKER_IMAGE: "registry.gitlab.com/company/app-service:latest"
+  K8S_NAMESPACE: "app-prod"
+  RUN_SECURITY: "true"
+
+stages:
+  - build
+  - test
+  - security
+  - package
+  - deploy
+
+build_app:
+  extends: .build_app
+
+unit_tests:
+  extends: .unit_tests
+
+security_scan:
+  extends: .security_scan
+
+container_build:
+  extends: .build_container
+
+deploy_to_prod:
+  extends: .deploy_k8s
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
