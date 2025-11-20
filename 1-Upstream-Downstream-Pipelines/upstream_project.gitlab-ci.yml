@@ -1,0 +1,71 @@
+stages:
+  - checkout
+  - build
+  - test
+  - package
+  - upload_artifact
+  - trigger_downstream
+
+variables:
+  MAVEN_OPTS: "-Dmaven.test.failure.ignore=false"
+
+
+checkout_code:
+  stage: checkout
+  script:
+    - git fetch --all
+    - git reset --hard origin/$CI_COMMIT_BRANCH
+  artifacts:
+    paths:
+      - ./
+    expire_in: 1h
+
+
+build_job:
+  stage: build
+  script:
+    - mvn -B clean compile
+  needs: ["checkout_code"]
+  artifacts:
+    paths:
+      - target/
+    expire_in: 2h
+
+
+unit_test_job:
+  stage: test
+  script:
+    - mvn -B test --fail-at-end
+  needs: ["build_job"]
+  artifacts:
+    paths:
+      - target/surefire-reports/
+    expire_in: 2h
+
+
+package_job:
+  stage: package
+  script:
+    - mvn -B package -DskipTests
+  needs: ["unit_test_job"]
+  artifacts:
+    paths:
+      - target/*.jar
+    expire_in: 2h
+
+
+upload_artifact:
+  stage: upload_artifact
+  image: amazon/aws-cli:2.13.4
+  script:
+    - aws s3 cp target/*.jar s3://myapp-artifacts/$CI_COMMIT_SHA/
+  needs: ["package_job"]
+
+
+trigger_downstream:
+  stage: trigger_downstream
+  trigger:
+    project: Telus Digital/Jyoti
+    branch: main
+    strategy: depend
+  needs: ["upload_artifact"]
