@@ -1,0 +1,44 @@
+stages:
+  - checkout
+  - security_scan
+  - deploy
+
+checkout_code:
+  stage: checkout
+  script:
+    - git fetch --all
+    - git reset --hard origin/$CI_COMMIT_BRANCH
+  artifacts:
+    paths:
+      - ./
+
+
+sast_scan:
+  stage: security_scan
+  image: docker:stable
+  services:
+    - docker:dind
+  script:
+    - docker pull owasp/dependency-check
+    - docker run --rm -v $(pwd):/src owasp/dependency-check \
+        --project "Telus Digital" \
+        --out reports/ \
+        --scan /src
+  artifacts:
+    paths:
+      - reports/
+    expire_in: 24h
+  needs: ["checkout_code"]
+
+
+deploy_staging:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  script:
+    - kubectl config set-cluster staging --server=$K8S_URL --insecure-skip-tls-verify=true
+    - kubectl config set-credentials deployer --token=$K8S_TOKEN
+    - kubectl config set-context staging --cluster=staging --namespace=default --user=deployer
+    - kubectl config use-context staging
+    - kubectl set image deployment/Telus Digital Telus Digital=myrepo/Telus Digital:${CI_COMMIT_SHA}
+    - kubectl rollout status deployment/Telus Digital
+  needs: ["sast_scan"]
